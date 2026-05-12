@@ -21,6 +21,11 @@ server {
     # Allow large chat payloads (file uploads etc. if needed later).
     client_max_body_size 8m;
 
+    # Long-running agent calls — match upstream budget at server level.
+    client_header_timeout 60s;
+    client_body_timeout   600s;
+    send_timeout          600s;
+
     # --- Static assets served directly by nginx (bypasses FastAPI) ---
     location /static/ {
         alias /home/ubuntu/meridian-wealth-deployment/static/;
@@ -42,13 +47,10 @@ server {
         proxy_set_header Connection        "";
 
         # Agent loops can run for many minutes — match the app's
-        # internal recursion budget. 600s on every dimension.
+        # internal recursion budget. 600s on every proxy dimension.
         proxy_connect_timeout 600s;
         proxy_send_timeout    600s;
         proxy_read_timeout    600s;
-        send_timeout          600s;
-        client_body_timeout   600s;
-        client_header_timeout 60s;
 
         # Disable buffering so client gets the response as soon as
         # FastAPI flushes it (relevant if we ever stream tokens).
