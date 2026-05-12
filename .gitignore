@@ -21,8 +21,8 @@ env/
 # Project data / build artefacts
 vectorstore/*
 !vectorstore/.gitkeep
-data/*.db
-# data/*.db-journal
+# data/*.db
+data/*.db-journal
 
 # IDE
 .idea/
