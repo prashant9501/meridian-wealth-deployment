@@ -1,0 +1,37 @@
+[Unit]
+Description=Meridian Wealth Financial Analyst Agent (FastAPI + LangGraph)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/meridian-wealth-deployment
+EnvironmentFile=/home/ubuntu/meridian-wealth-deployment/.env
+ExecStart=/home/ubuntu/meridian-wealth-deployment/venv/bin/uvicorn app:app \
+    --host 127.0.0.1 \
+    --port 8000 \
+    --workers 1 \
+    --proxy-headers \
+    --forwarded-allow-ips=127.0.0.1
+Restart=on-failure
+RestartSec=5s
+StartLimitInterval=60s
+StartLimitBurst=5
+TimeoutStartSec=120s
+TimeoutStopSec=30s
+KillMode=mixed
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=meridian-wealth
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/home/ubuntu/meridian-wealth-deployment
+
+[Install]
+WantedBy=multi-user.target

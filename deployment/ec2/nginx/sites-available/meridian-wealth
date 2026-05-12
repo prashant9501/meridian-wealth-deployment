@@ -1,0 +1,63 @@
+# Meridian Wealth — nginx reverse proxy for FastAPI + static frontend.
+#
+# Long-running agent calls (multi-tool ReAct) need generous timeouts:
+# upstream uvicorn can take up to ~600s before returning. Match that
+# here so nginx doesn't 504 before the agent finishes.
+
+upstream meridian_app {
+    server 127.0.0.1:8000 fail_timeout=0;
+    keepalive 16;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name _;   # replaced with the real domain by certbot --nginx
+
+    # Logs
+    access_log /var/log/nginx/meridian-wealth.access.log;
+    error_log  /var/log/nginx/meridian-wealth.error.log;
+
+    # Allow large chat payloads (file uploads etc. if needed later).
+    client_max_body_size 8m;
+
+    # --- Static assets served directly by nginx (bypasses FastAPI) ---
+    location /static/ {
+        alias /home/ubuntu/meridian-wealth-deployment/static/;
+        access_log off;
+        expires 1h;
+        add_header Cache-Control "public";
+        try_files $uri =404;
+    }
+
+    # --- Everything else proxies to FastAPI ---
+    location / {
+        proxy_pass http://meridian_app;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header Connection        "";
+
+        # Agent loops can run for many minutes — match the app's
+        # internal recursion budget. 600s on every dimension.
+        proxy_connect_timeout 600s;
+        proxy_send_timeout    600s;
+        proxy_read_timeout    600s;
+        send_timeout          600s;
+        client_body_timeout   600s;
+        client_header_timeout 60s;
+
+        # Disable buffering so client gets the response as soon as
+        # FastAPI flushes it (relevant if we ever stream tokens).
+        proxy_buffering off;
+        proxy_request_buffering off;
+    }
+
+    # Reject anything weird
+    location ~ /\.(?!well-known) {
+        deny all;
+    }
+}
